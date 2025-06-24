@@ -22,118 +22,104 @@
 <body>
   <h2></h2>
   <div class="content">
-Sub CollectUserScreenTimeFrequency()
+Sub 集計_画面ID_月時単位_完全版()
+
     Dim folderPath As String
-    Dim fileName As String
-    Dim wb As Workbook, ws As Worksheet
-    Dim lastRow As Long, i As Long
-    Dim row As Long
+    folderPath = "C:\Your\Folder\Path\"  ' ← 请修改为你实际文件夹路径，末尾带“\”
+
+    ' 用户ID列表
     Dim userList As Variant
-    Dim userDict As Object
-    Dim currentUser As String
-    Dim screenId As String, timeVal As String, key As String
-    Dim dataDict As Object
-    Dim resultWb As Workbook, resultWs As Worksheet
-    Dim outputCount As Long
+    userList = Array("A1234567", "B2345678", "C3456789", "D4567890", "E5678901", _
+                     "F6789012", "G7890123", "H8901234", "I9012345", "J0123456", _
+                     "K1234567", "L2345678", "M3456789", "N4567890", "O5678901")
 
-    ' 対象ユーザーID（15個）
-    userList = Array("aaaa", "bbbb", "cccc", "dddd", "eeee", _
-                     "ffff", "gggg", "hhhh", "iiii", "jjjj", _
-                     "kkkk", "llll", "mmmm", "nnnn", "oooo")
-
-    ' ユーザーごとの辞書初期化
-    Set userDict = CreateObject("Scripting.Dictionary")
+    ' 初始化字典
+    Dim userDict As Object: Set userDict = CreateObject("Scripting.Dictionary")
+    Dim i As Long
     For i = 0 To UBound(userList)
-        userDict(userList(i)) = CreateObject("Scripting.Dictionary")
-    Next
+        Set userDict(userList(i)) = CreateObject("Scripting.Dictionary")
+    Next i
 
-    ' フォルダパス（このブックと同じ場所）
-    folderPath = ThisWorkbook.Path & "\"
-    If Right(folderPath, 1) <> "\" Then folderPath = folderPath & "\"
-    
-    fileName = Dir(folderPath & "*.xls*")
-    Do While fileName <> ""
-        On Error Resume Next
-        Set wb = Workbooks.Open(folderPath & fileName, ReadOnly:=True)
-        If Err.Number <> 0 Then
-            Debug.Print "ファイルを開けません: " & fileName
-            Err.Clear
-            GoTo SkipFile
-        End If
-        On Error GoTo 0
+    ' 遍历 Excel 文件
+    Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
+    Dim folder As Object: Set folder = fso.GetFolder(folderPath)
+    Dim file As Object, wb As Workbook, ws As Worksheet
+    Dim lastRow As Long
+    Dim uid As String, sid As String, tVal As Variant
+    Dim monHour As String, key As String
 
-        For Each ws In wb.Worksheets
-            lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-            For row = 2 To lastRow
-                currentUser = Trim(ws.Cells(row, 1).Value)
-                screenId = Trim(ws.Cells(row, 2).Value)
-                timeVal = Trim(ws.Cells(row, 3).Text)
-
-                If userDict.exists(currentUser) Then
-                    key = screenId & "||" & timeVal
-                    Set dataDict = userDict(currentUser)
-                    If dataDict.exists(key) Then
-                        dataDict(key) = dataDict(key) + 1
-                    Else
-                        dataDict.Add key, 1
-                    End If
-                End If
-            Next row
-        Next ws
-
-        wb.Close False
-SkipFile:
-        fileName = Dir
-    Loop
-
-    ' 結果出力（2ユーザーごと）
-    Dim batchCount As Long: batchCount = 0
-    Dim savePath As String
-    Dim fileUserCount As Long: fileUserCount = 0
-    Set resultWb = Nothing
-    
-    For Each currentUser In userDict.Keys
-        If fileUserCount = 0 Then
-            Set resultWb = Workbooks.Add
-            batchCount = batchCount + 1
-        End If
-        
-        Set resultWs = resultWb.Sheets.Add(After:=resultWb.Sheets(resultWb.Sheets.Count))
-        resultWs.Name = currentUser
-        
-        resultWs.Cells(1, 1).Value = "画面ID"
-        resultWs.Cells(1, 2).Value = "時間"
-        resultWs.Cells(1, 3).Value = "出現回数"
-        
-        Set dataDict = userDict(currentUser)
-        i = 2
-        For Each key In dataDict.Keys
-            Dim parts() As String
-            parts = Split(key, "||")
-            resultWs.Cells(i, 1).Value = parts(0)
-            resultWs.Cells(i, 2).Value = parts(1)
-            resultWs.Cells(i, 3).Value = dataDict(key)
-            i = i + 1
-        Next key
-        
-        fileUserCount = fileUserCount + 1
-        
-        If fileUserCount = 2 Or currentUser = userDict.Keys(userDict.Count - 1) Then
-            savePath = folderPath & "結果_batch" & batchCount & ".xlsx"
-            Application.DisplayAlerts = False
+    For Each file In folder.Files
+        If LCase(fso.GetExtensionName(file.Name)) Like "xls*" Then
             On Error Resume Next
-            For Each ws In resultWb.Sheets
-                If ws.Name = "Sheet1" Or ws.Name = "Sheet2" Or ws.Name = "Sheet3" Then ws.Delete
-            Next ws
+            Set wb = Workbooks.Open(file.Path, ReadOnly:=True)
             On Error GoTo 0
-            Application.DisplayAlerts = True
-            resultWb.SaveAs Filename:=savePath
-            resultWb.Close False
-            fileUserCount = 0
-        End If
-    Next
+            If Not wb Is Nothing Then
+                Set ws = wb.Sheets(1)
+                lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
 
-    MsgBox "処理が完了しました。"
+                For i = 2 To lastRow
+                    uid = Trim(ws.Cells(i, 1).Value)
+                    If userDict.exists(uid) Then
+                        sid = Trim(ws.Cells(i, 2).Value)
+                        tVal = ws.Cells(i, 3).Value
+
+                        If IsDate(tVal) Then
+                            monHour = Format(tVal, "mmhh")  ' 月+小时
+                            key = sid & "||" & monHour
+                            If Not userDict(uid).exists(key) Then
+                                userDict(uid)(key) = 1
+                            Else
+                                userDict(uid)(key) = userDict(uid)(key) + 1
+                            End If
+                        End If
+                    End If
+                Next i
+                wb.Close False
+            End If
+        End If
+    Next file
+
+    ' 创建结果工作簿
+    Dim resultWb As Workbook, resultWs As Worksheet
+    Dim resultPath As String: resultPath = folderPath & "結果.xlsx"
+    On Error Resume Next: Workbooks("結果.xlsx").Close False: On Error GoTo 0
+    Set resultWb = Workbooks.Add
+
+    Dim uidKey As Variant, dataDict As Object, keyItem As Variant
+    Dim parts() As String
+    Dim rowIndex As Long
+
+    For Each uidKey In userList
+        Set resultWs = resultWb.Sheets.Add(After:=resultWb.Sheets(resultWb.Sheets.Count))
+        resultWs.Name = uidKey
+        resultWs.Range("A1:C1").Value = Array("画面ID", "月+時", "出現回数")
+        rowIndex = 2
+
+        Set dataDict = userDict(uidKey)
+        If Not dataDict Is Nothing Then
+            For Each keyItem In dataDict.Keys
+                parts = Split(keyItem, "||")
+                resultWs.Cells(rowIndex, 1).Value = parts(0)
+                resultWs.Cells(rowIndex, 2).Value = parts(1)
+                resultWs.Cells(rowIndex, 3).Value = dataDict(keyItem)
+                rowIndex = rowIndex + 1
+            Next
+        End If
+    Next uidKey
+
+    ' 删除默认 Sheet
+    Application.DisplayAlerts = False
+    Dim tmpWs As Worksheet
+    For Each tmpWs In resultWb.Sheets
+        If tmpWs.Name Like "Sheet*" Then tmpWs.Delete
+    Next tmpWs
+    Application.DisplayAlerts = True
+
+    ' 保存
+    resultWb.SaveAs resultPath
+    resultWb.Close False
+
+    MsgBox "処理が完了しました。出力ファイル：" & resultPath
 
 End Sub
 
