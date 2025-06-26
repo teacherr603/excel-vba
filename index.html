@@ -22,6 +22,20 @@
 <body>
   <h2></h2>
   <div class="content">
+    If IsDate(ws.Cells(i, 3).Value) Then
+    timeVal = Format(ws.Cells(i, 3).Value, "yyyy/mm/dd hh:mm:ss")
+Else
+    timeVal = Trim(ws.Cells(i, 3).Text)
+End If
+    ' 把第3列时间列转换为文字列
+With ws.Columns(3)
+    .NumberFormat = "@"
+    For i = 2 To ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+        .Cells(i).Value = .Cells(i).Text ' 强制保存显示文本
+    Next i
+End With
+
+
 Sub Collect_ScreenID_Time_By_UserID()
     Dim folderPath As String, fileName As String
     Dim wb As Workbook, ws As Worksheet
