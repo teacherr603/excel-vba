@@ -22,39 +22,92 @@
 <body>
   <h2></h2>
   <div class="content">
-   Sub Collect_ScreenID_Time_By_UserID_ConvertTime()
+   Sub Convert_ThirdColumn_To_Text()
     Dim folderPath As String, fileName As String
     Dim wb As Workbook, ws As Worksheet
-    Dim resultWb As Workbook, resultWs As Worksheet
-    Dim userDict As Object, dataDict As Object
-    Dim i As Long, lastRow As Long
-    Dim userID As String, screenID As String, timeVal As String
-    Dim key As String, uid As Variant
-    Dim userList As Variant
-    Dim outputRow As Long
-    Dim arrKey
+    Dim lastRow As Long, i As Long
+    Dim originalValue As Variant
 
-    ' 优化：关闭动画
+    ' 提高性能：关闭动画、警告
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
     Application.EnableEvents = False
 
-    ' 文件夹选择
+    ' 选择文件夹
     With Application.FileDialog(msoFileDialogFolderPicker)
         If .Show <> -1 Then Exit Sub
         folderPath = .SelectedItems(1) & "\"
     End With
 
-    ' 指定的15个用户
+    fileName = Dir(folderPath & "*.xls*")
+    Do While fileName <> ""
+        Debug.Print "処理中: " & fileName
+        On Error Resume Next
+        Set wb = Workbooks.Open(folderPath & fileName)
+        If Err.Number <> 0 Then
+            Debug.Print "開けませんでした: " & fileName
+            Err.Clear: fileName = Dir(): On Error GoTo 0: Continue Do
+        End If
+        On Error GoTo 0
+
+        For Each ws In wb.Worksheets
+            lastRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+            With ws.Columns(3)
+                .NumberFormat = "@" ' 转为文字列格式
+                For i = 2 To lastRow
+                    originalValue = .Cells(i).Text
+                    .Cells(i).Value = originalValue
+                Next i
+            End With
+        Next ws
+
+        wb.Save
+        wb.Close False
+        fileName = Dir()
+    Loop
+
+    ' 恢复设置
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = True
+    Application.EnableEvents = True
+
+    MsgBox "全て完了しました！"
+End Sub
+Sub Count_ScreenID_Time_By_UserID()
+    Dim folderPath As String, fileName As String
+    Dim wb As Workbook, ws As Worksheet
+    Dim resultWb As Workbook, resultWs As Worksheet
+    Dim userDict As Object, dataDict As Object
+    Dim i As Long, lastRow As Long
+    Dim userID As String, screenID As String, timeStr As String
+    Dim key As String, uid As Variant
+    Dim userList As Variant
+    Dim outputRow As Long
+    Dim arrKey
+
+    ' 关闭动画、提示等优化性能
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    Application.EnableEvents = False
+
+    ' 选择目标文件夹
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        If .Show <> -1 Then Exit Sub
+        folderPath = .SelectedItems(1) & "\"
+    End With
+
+    ' 指定要统计的15个 userid（请替换为实际ID）
     userList = Array("aaa001", "bbb002", "ccc003", "ddd004", "eee005", _
                      "fff006", "ggg007", "hhh008", "iii009", "jjj010", _
                      "kkk011", "lll012", "mmm013", "nnn014", "ooo015")
 
+    ' 初始化主字典：userDict(userid) = 每个(userid)对应的(key = screenID+时间, value = 次数)
     Set userDict = CreateObject("Scripting.Dictionary")
     For i = 0 To UBound(userList)
         userDict(userList(i)) = CreateObject("Scripting.Dictionary")
     Next i
 
+    ' 遍历所有文件
     fileName = Dir(folderPath & "*.xls*")
     Do While fileName <> ""
         On Error Resume Next
@@ -65,24 +118,17 @@
         End If
         On Error GoTo 0
 
+        ' 遍历所有工作表
         For Each ws In wb.Worksheets
-            ' 第三列时间列转换为文字列
-            With ws.Columns(3)
-                .NumberFormat = "@"
-                For i = 2 To ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
-                    .Cells(i).Value = .Cells(i).Text
-                Next i
-            End With
-
             lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
             For i = 2 To lastRow
                 userID = Trim(ws.Cells(i, 1).Text)
                 If userDict.exists(userID) Then
                     screenID = Trim(ws.Cells(i, 2).Text)
-                    timeVal = Trim(ws.Cells(i, 3).Text) ' 此时已经是文字列
+                    timeStr = Trim(ws.Cells(i, 3).Text) ' 现在是文字列，不用Format或转换
 
-                    If screenID <> "" And timeVal <> "" Then
-                        key = screenID & "|" & timeVal
+                    If screenID <> "" And timeStr <> "" Then
+                        key = screenID & "|" & timeStr
                         dataDict = userDict(userID)
                         If dataDict.exists(key) Then
                             dataDict(key) = dataDict(key) + 1
@@ -98,7 +144,7 @@
         fileName = Dir()
     Loop
 
-    ' 输出到結果.xlsx
+    ' 输出到 結果.xlsx
     Set resultWb = Workbooks.Add
 
     For Each uid In userDict.Keys
@@ -122,13 +168,14 @@
     resultWb.SaveAs folderPath & "結果.xlsx"
     resultWb.Close
 
-    ' 恢复动画
+    ' 恢复设置
     Application.ScreenUpdating = True
     Application.DisplayAlerts = True
     Application.EnableEvents = True
 
-    MsgBox "完了しました！"
+    MsgBox "統計完了しました！"
 End Sub
+
 
 
 
