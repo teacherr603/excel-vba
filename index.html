@@ -23,112 +23,28 @@
   <h2></h2>
   <div class="content">
  
-Sub Count_ScreenID_Time_By_UserID_FromTextTime()
-    Dim folderPath As String, fileName As String
-    Dim wb As Workbook, ws As Worksheet
-    Dim resultWb As Workbook, resultWs As Worksheet
-    Dim userDict As Object, dataDict As Object
-    Dim i As Long, lastRow As Long
-    Dim userID As String, screenID As String, timeStr As String
-    Dim key As String, uid As Variant
-    Dim userList As Variant
-    Dim outputRow As Long
-    Dim arrKey
-
-    ' 关闭动画加快速度
-    Application.ScreenUpdating = False
-    Application.DisplayAlerts = False
-    Application.EnableEvents = False
-
-    ' ===== 指定 15 个 UserID（替换为你自己的） =====
-    userList = Array("aaa001", "bbb002", "ccc003", "ddd004", "eee005", _
-                     "fff006", "ggg007", "hhh008", "iii009", "jjj010", _
-                     "kkk011", "lll012", "mmm013", "nnn014", "ooo015")
-
-    ' ===== 初始化字典结构 =====
-    Set userDict = CreateObject("Scripting.Dictionary")
-    For i = 0 To UBound(userList)
-        userDict(userList(i)) = CreateObject("Scripting.Dictionary")
-    Next i
-
-    ' ===== 选择目标文件夹 =====
-    With Application.FileDialog(msoFileDialogFolderPicker)
-        If .Show <> -1 Then Exit Sub
-        folderPath = .SelectedItems(1) & "\"
-    End With
-
-    ' ===== 遍历所有 Excel 文件 =====
-    fileName = Dir(folderPath & "*.xls*")
-    Do While fileName <> ""
-        On Error Resume Next
-        Set wb = Workbooks.Open(folderPath & fileName, ReadOnly:=True)
-        If Err.Number <> 0 Then
-            Debug.Print "无法打开：" & fileName
-            Err.Clear: fileName = Dir(): On Error GoTo 0: Continue Do
-        End If
-        On Error GoTo 0
-
-        For Each ws In wb.Worksheets
-            lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-            For i = 2 To lastRow
-                userID = Trim(ws.Cells(i, 1).Text)
-                If userDict.exists(userID) Then
-                    screenID = Trim(ws.Cells(i, 2).Text)
-                    timeStr = Trim(ws.Cells(i, 3).Text) ' 时间列应为纯文本或已格式化
-
-                    If screenID <> "" And timeStr Like "*#*" Then
-                        key = screenID & "|" & timeStr
-                        ' !!! 正确写法：Set 对象引用
-                        Set dataDict = userDict(userID)
-                        If dataDict.exists(key) Then
-                            dataDict(key) = dataDict(key) + 1
-                        Else
-                            dataDict(key) = 1
-                        End If
-                        'Debug.Print "统计成功: " & userID & " / " & key
-                    End If
-                End If
-            Next i
-        Next ws
-        wb.Close False
-        fileName = Dir()
-    Loop
-
-    ' ===== 创建输出文件 =====
-    Set resultWb = Workbooks.Add
-
-    For Each uid In userDict.Keys
-        Set dataDict = userDict(uid)
-        Debug.Print "写入结果：" & uid & " / " & dataDict.Count & " 项"
-        
-        Set resultWs = resultWb.Sheets.Add(After:=resultWb.Sheets(resultWb.Sheets.Count))
-        resultWs.Name = uid
-        resultWs.Cells(1, 1).Value = "画面ID"
-        resultWs.Cells(1, 2).Value = "時間"
-        resultWs.Cells(1, 3).Value = "数量"
-
-        outputRow = 2
-        For Each key In dataDict.Keys
-            arrKey = Split(key, "|")
-            resultWs.Cells(outputRow, 1).Value = arrKey(0)
-            resultWs.Cells(outputRow, 2).Value = arrKey(1)
-            resultWs.Cells(outputRow, 3).Value = dataDict(key)
-            outputRow = outputRow + 1
-        Next
-    Next
-
-    ' ===== 保存输出文件 =====
-    resultWb.SaveAs folderPath & "結果.xlsx"
-    resultWb.Close
-
-    ' ===== 恢复设置 =====
-    Application.ScreenUpdating = True
-    Application.DisplayAlerts = True
-    Application.EnableEvents = True
-
-    MsgBox "处理完成！结果文件：結果.xlsx", vbInformation
-End Sub
-
+SELECT DISTINCT
+    c.bid,                    -- 业务ID
+    a.userid,                 -- 用户ID
+    a.usergroupid,           -- 用户组ID
+    a.username,              -- 用户名
+    b.usergroupname          -- 用户组名称
+FROM
+    c                         -- 表 c: 存储 bid 与 bgroupid 的关系
+-- 连接用户表（f: userid 与 bgroupid 关联）
+LEFT JOIN f 
+    ON c.bgroupid = f.bgroupid
+-- 获取用户名信息（a: userid 与 usergroupid 和 username）
+LEFT JOIN a 
+    ON f.userid = a.userid
+-- 连接用户组业务关系表（e: usergroupid 与 bgroupid 的关系）
+LEFT JOIN e 
+    ON c.bgroupid = e.bgroupid
+-- 获取用户组名信息（b: usergroupid 与 usergroupname）
+LEFT JOIN b 
+    ON a.usergroupid = b.usergroupid
+WHERE
+    c.bid = 123456           -- 指定查询的 bid 值
 
 
 
