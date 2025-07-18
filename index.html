@@ -23,29 +23,14 @@
   <h2></h2>
   <div class="content">
  
-SELECT DISTINCT
-    c.bid,                    -- 业务ID
-    a.userid,                 -- 用户ID
-    a.usergroupid,           -- 用户组ID
-    a.username,              -- 用户名
-    b.usergroupname          -- 用户组名称
-FROM
-    c                         -- 表 c: 存储 bid 与 bgroupid 的关系
--- 连接用户表（f: userid 与 bgroupid 关联）
-LEFT JOIN f 
-    ON c.bgroupid = f.bgroupid
--- 获取用户名信息（a: userid 与 usergroupid 和 username）
-LEFT JOIN a 
-    ON f.userid = a.userid
--- 连接用户组业务关系表（e: usergroupid 与 bgroupid 的关系）
-LEFT JOIN e 
-    ON c.bgroupid = e.bgroupid
--- 获取用户组名信息（b: usergroupid 与 usergroupname）
-LEFT JOIN b 
-    ON a.usergroupid = b.usergroupid
-WHERE
-    c.bid = 123456           -- 指定查询的 bid 值
+index=your_index_name
+| eval filename=replace(source, "^.*/", "")
+| eventstats count as line_count by source
+| table _time, source, line_count, _raw
 
+index=your_index_name source="*/路径/*"
+| eval filename=replace(source, "^.*/", "")
+| stats count as line_count by filename
 
 
 
